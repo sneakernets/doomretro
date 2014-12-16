@@ -236,23 +236,23 @@ void I_Error(char *error, ...)
     SDL_Quit();
 
 #elif defined(__MACOSX__)
-    {
-        CFStringRef     message;
-        int             i;
+    // {
+    //     CFStringRef     message;
+    //     int             i;
 
-        // The CoreFoundation message box wraps text lines, so replace
-        // newline characters with spaces so that multiline messages
-        // are continuous.
+    //     // The CoreFoundation message box wraps text lines, so replace
+    //     // newline characters with spaces so that multiline messages
+    //     // are continuous.
 
-        for (i = 0; msgbuf[i] != '\0'; ++i)
-            if (msgbuf[i] == '\n')
-                msgbuf[i] = ' ';
+    //     for (i = 0; msgbuf[i] != '\0'; ++i)
+    //         if (msgbuf[i] == '\n')
+    //             msgbuf[i] = ' ';
 
-        message = CFStringCreateWithCString(NULL, msgbuf, kCFStringEncodingUTF8);
+    //     message = CFStringCreateWithCString(NULL, msgbuf, kCFStringEncodingUTF8);
 
-        CFUserNotificationDisplayNotice(0, kCFUserNotificationCautionAlertLevel, NULL, NULL, NULL,
-            CFSTR(PACKAGE_STRING), message, NULL);
-    }
+    //     CFUserNotificationDisplayNotice(0, kCFUserNotificationCautionAlertLevel, NULL, NULL, NULL,
+    //         CFSTR(PACKAGE_STRING), message, NULL);
+    // }
 #else
         ZenityErrorBox(msgbuf);
 #endif

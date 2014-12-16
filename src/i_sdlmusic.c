@@ -41,7 +41,7 @@
 #include "m_misc.h"
 #include "mus2mid.h"
 #include "SDL.h"
-#include "SDL_mixer.h"
+#include "SDL/SDL_mixer.h"
 #include "s_sound.h"
 #include "z_zone.h"
 

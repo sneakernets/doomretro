@@ -44,7 +44,7 @@
 #include "m_misc.h"
 #include "m_random.h"
 #include "SDL.h"
-#include "SDL_mixer.h"
+#include "SDL/SDL_mixer.h"
 #include "s_sound.h"
 #include "w_wad.h"
 #include "z_zone.h"

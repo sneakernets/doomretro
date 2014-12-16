@@ -47,7 +47,7 @@
 #include "m_menu.h"
 #include "m_misc.h"
 #include "SDL.h"
-#include "SDL_syswm.h"
+//#include "SDL_syswm.h"
 #include "s_sound.h"
 #include "v_video.h"
 #include "version.h"
