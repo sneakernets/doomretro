@@ -697,8 +697,6 @@ static void I_ReadMouse(void)
     int         y;
     event_t     ev;
 
-    SDL_PumpEvents();
-
     ev.type = ev_mouse;
     ev.data1 = SDL_GetRelativeMouseState(&x, &y);
     ev.data2 = AccelerateMouse(x);
@@ -819,7 +817,6 @@ void I_FinishUpdate(void)
     SDL_RenderCopy(sdl_renderer, sdl_texture, NULL, NULL);
     SDL_RenderPresent(sdl_renderer);
 #else
-    SDL_FillRect(screen, NULL, 0);
     SDL_LowerBlit(screenbuffer, &src_rect, screen, &dest_rect);
     SDL_Flip(screen);
 #endif
@@ -1115,6 +1112,7 @@ void ToggleWideScreen(boolean toggle)
         windowwidth = screen->w;
         windowheight = screen->h;
     }
+    SDL_FreeSurface(screenbuffer);
     screenbuffer = SDL_CreateRGBSurface(SDL_SWSURFACE, width, height, 8, 0, 0, 0, 0);
 #endif
 
@@ -1302,6 +1300,8 @@ void ToggleFullScreen(void)
         }
     }
 
+    SDL_FreeSurface(screenbuffer);
+
 #ifdef SDL20
     screenbuffer = SDL_CreateRGBSurface(0, width, height, 8, 0, 0, 0, 0);
     sdl_texture = SDL_CreateTextureFromSurface(sdl_renderer, screenbuffer);
@@ -1335,6 +1335,8 @@ static void ApplyWindowResize(int resize_h)
 
     if (widescreen)
         height += (int)((double)height * SBARHEIGHT / (SCREENHEIGHT - SBARHEIGHT) + 1.5);
+
+    SDL_FreeSurface(screenbuffer);
 
 #ifdef SDL20
     SDL_SetWindowSize(sdl_window, windowwidth, windowheight);
