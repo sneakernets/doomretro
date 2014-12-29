@@ -188,10 +188,10 @@ void I_AccessibilityShortcutKeys(boolean bAllowKeys)
 }
 
 #ifdef SDL20
-extern SDL_Window *sdl_window;
+extern SDL_Window       *window;
 #endif
 
-void init_win32(LPCTSTR lpIconName)
+void I_InitWindows32(void)
 {
     HINSTANCE           handle = GetModuleHandle(NULL);
     SDL_SysWMinfo       info;
@@ -199,20 +199,20 @@ void init_win32(LPCTSTR lpIconName)
     SDL_VERSION(&info.version);
 
 #ifdef SDL20
-    SDL_GetWindowWMInfo(sdl_window, &info);
+    SDL_GetWindowWMInfo(window, &info);
     hwnd = info.info.win.window;
 #else
     SDL_GetWMInfo(&info);
     hwnd = info.window;
 #endif
 
-    icon = LoadIcon(handle, lpIconName);
+    icon = LoadIcon(handle, "IDI_ICON1");
     SetClassLongPtr(hwnd, GCLP_HICON, (LONG)icon);
 
     oldProc = (WNDPROC)SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG)WndProc);
 }
 
-void done_win32(void)
+void I_ShutdownWindows32(void)
 {
     DestroyIcon(icon);
     UnhookWindowsHookEx(g_hKeyboardHook);

@@ -68,9 +68,7 @@ SDL_Surface             *screen = NULL;
 SDL_Surface             *screenbuffer = NULL;
 
 #ifdef SDL20
-SDL_Window              *sdl_window = NULL;
-static SDL_Renderer     *sdl_renderer = NULL;
-static SDL_Texture      *sdl_texture = NULL;
+SDL_Window              *window = NULL;
 #endif
 
 // palette
@@ -201,7 +199,7 @@ boolean MouseShouldBeGrabbed(void)
 static void UpdateFocus(void)
 {
 #ifdef SDL20
-    Uint32              state = SDL_GetWindowFlags(sdl_window);
+    Uint32              state = SDL_GetWindowFlags(window);
 
     // Should the screen be grabbed?
     screenvisible = (state & SDL_WINDOW_SHOWN);
@@ -418,7 +416,7 @@ void I_SaveWindowPosition(void)
     SDL_VERSION(&info.version);
 
 #ifdef SDL20
-    if (SDL_GetWindowWMInfo(sdl_window, &info))
+    if (SDL_GetWindowWMInfo(window, &info))
 #else
     if (SDL_GetWMInfo(&info))
 #endif
@@ -449,7 +447,7 @@ void RepositionWindow(int amount)
     SDL_VERSION(&info.version);
 
 #ifdef SDL20
-    if (SDL_GetWindowWMInfo(sdl_window, &info))
+    if (SDL_GetWindowWMInfo(window, &info))
 #else
     if (SDL_GetWMInfo(&info))
 #endif
@@ -503,7 +501,7 @@ static void CenterMouse(void)
 {
     // Warp to the screen center
 #ifdef SDL20
-    SDL_WarpMouseInWindow(sdl_window, screen->w / 2, screen->h / 2);
+    SDL_WarpMouseInWindow(window, screen->w / 2, screen->h / 2);
 #else
     SDL_WarpMouse(screen->w / 2, screen->h / 2);
 #endif
@@ -693,8 +691,7 @@ void I_GetEvent(void)
 
 static void I_ReadMouse(void)
 {
-    int         x;
-    int         y;
+    int         x, y;
     event_t     ev;
 
     ev.type = ev_mouse;
@@ -735,7 +732,7 @@ static void UpdateGrab(void)
         SetShowCursor(true);
 
 #ifdef SDL20
-        SDL_WarpMouseInWindow(sdl_window, screen->w - 16, screen->h - 16);
+        SDL_WarpMouseInWindow(window, screen->w - 16, screen->h - 16);
 #else
         SDL_WarpMouse(screen->w - 16, screen->h - 16);
 #endif
@@ -746,7 +743,7 @@ static void UpdateGrab(void)
     currently_grabbed = grab;
 }
 
-static __forceinline void blit(void)
+static __forceinline void StretchBlit(void)
 {
     fixed_t     i = 0;
     fixed_t     y = starty;
@@ -797,9 +794,6 @@ void I_FinishUpdate(void)
 
 #ifdef SDL20
         SDL_SetPaletteColors(screenbuffer->format->palette, palette, 0, 256);
-        if (sdl_texture)
-            SDL_DestroyTexture(sdl_texture);
-        sdl_texture = SDL_CreateTextureFromSurface(sdl_renderer, screenbuffer);
 #else
         SDL_SetColors(screenbuffer, palette, 0, 256);
 #endif
@@ -808,16 +802,17 @@ void I_FinishUpdate(void)
     }
 
     // draw to screen
-    blit();
+    StretchBlit();
+
+#ifdef WIN32
+    SDL_FillRect(screen, NULL, 0);
+#endif
+
+    SDL_LowerBlit(screenbuffer, &src_rect, screen, &dest_rect);
 
 #ifdef SDL20
-    SDL_BlitSurface(screenbuffer, NULL, screen, NULL);
-    SDL_UpdateTexture(sdl_texture, NULL, screen->pixels, screen->pitch);
-    SDL_RenderClear(sdl_renderer);
-    SDL_RenderCopy(sdl_renderer, sdl_texture, NULL, NULL);
-    SDL_RenderPresent(sdl_renderer);
+    SDL_UpdateWindowSurface(window);
 #else
-    SDL_LowerBlit(screenbuffer, &src_rect, screen, &dest_rect);
     SDL_Flip(screen);
 #endif
 
@@ -948,12 +943,9 @@ static void SetVideoMode(void)
         }
 
 #ifdef SDL20
-        if (sdl_window)
-            SDL_DestroyWindow(sdl_window);
-        sdl_window = SDL_CreateWindow(gamedescription, SDL_WINDOWPOS_UNDEFINED,
+        window = SDL_CreateWindow(gamedescription, SDL_WINDOWPOS_UNDEFINED,
             SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_FULLSCREEN);
-        screen = SDL_GetWindowSurface(sdl_window);
-        sdl_renderer = SDL_CreateRenderer(sdl_window, -1, SDL_RENDERER_PRESENTVSYNC);
+        screen = SDL_GetWindowSurface(window);
 #else
         screen = SDL_SetVideoMode(width, height, 0, SDL_HWSURFACE | SDL_HWPALETTE | SDL_DOUBLEBUF |
             SDL_FULLSCREEN);
@@ -966,12 +958,9 @@ static void SetVideoMode(void)
             M_SaveDefaults();
 
 #ifdef SDL20
-            if (sdl_window)
-                SDL_DestroyWindow(sdl_window);
-            sdl_window = SDL_CreateWindow(gamedescription, SDL_WINDOWPOS_UNDEFINED,
+            window = SDL_CreateWindow(gamedescription, SDL_WINDOWPOS_UNDEFINED,
                 SDL_WINDOWPOS_UNDEFINED, desktopwidth, desktopheight, SDL_WINDOW_FULLSCREEN);
-            screen = SDL_GetWindowSurface(sdl_window);
-            sdl_renderer = SDL_CreateRenderer(sdl_window, -1, SDL_RENDERER_PRESENTVSYNC);
+            screen = SDL_GetWindowSurface(window);
 #else
             screen = SDL_SetVideoMode(desktopwidth, desktopheight, 0, SDL_HWSURFACE |
                 SDL_HWPALETTE | SDL_DOUBLEBUF | SDL_FULLSCREEN);
@@ -1012,12 +1001,9 @@ static void SetVideoMode(void)
         SetWindowPositionVars();
 
 #ifdef SDL20
-        if (sdl_window)
-            SDL_DestroyWindow(sdl_window);
-        sdl_window = SDL_CreateWindow(gamedescription, SDL_WINDOWPOS_UNDEFINED,
+        window = SDL_CreateWindow(gamedescription, SDL_WINDOWPOS_UNDEFINED,
             SDL_WINDOWPOS_UNDEFINED, windowwidth, windowheight, SDL_WINDOW_RESIZABLE);
-        screen = SDL_GetWindowSurface(sdl_window);
-        sdl_renderer = SDL_CreateRenderer(sdl_window, -1, SDL_RENDERER_PRESENTVSYNC);
+        screen = SDL_GetWindowSurface(window);
 #else
         screen = SDL_SetVideoMode(windowwidth, windowheight, 0, SDL_HWSURFACE | SDL_HWPALETTE |
             SDL_DOUBLEBUF | SDL_RESIZABLE);
@@ -1026,16 +1012,7 @@ static void SetVideoMode(void)
         widescreen = false;
     }
 
-#ifdef SDL20
-    screenbuffer = SDL_CreateRGBSurface(0, width, height, 8, 0, 0, 0, 0);
-    sdl_texture = SDL_CreateTextureFromSurface(sdl_renderer, screenbuffer);
-    SDL_RenderSetLogicalSize(sdl_renderer, screenbuffer->w, screenbuffer->h);
-    SDL_SetRenderDrawColor(sdl_renderer, 0, 0, 0, 255);
-    SDL_RenderClear(sdl_renderer);
-    SDL_RenderPresent(sdl_renderer);
-#else
     screenbuffer = SDL_CreateRGBSurface(SDL_SWSURFACE, width, height, 8, 0, 0, 0, 0);
-#endif
 
     pitch = screenbuffer->pitch;
     pixels = (byte *)screenbuffer->pixels;
@@ -1046,17 +1023,15 @@ static void SetVideoMode(void)
     startx = stepx - 1;
     starty = stepy - 1;
 
-#ifdef SDL12
     src_rect.w = screenbuffer->w;
     src_rect.h = screen->clip_rect.h;
     dest_rect.x = (screen->w - screenbuffer->w) / 2;
     dest_rect.y = (screen->h - screenbuffer->h) / 2;
     dest_rect.w = screenbuffer->w;
     dest_rect.h = screen->clip_rect.h;
-#endif
 }
 
-void ToggleWideScreen(boolean toggle)
+void ToggleWidescreen(boolean toggle)
 {
     if (fullscreen && (double)screen->w / screen->h < (double)16 / 10)
     {
@@ -1098,23 +1073,30 @@ void ToggleWideScreen(boolean toggle)
     }
 
     returntowidescreen = false;
-#ifdef SDL20
-    SDL_RenderSetLogicalSize(sdl_renderer, width, height);
-#else
+
     if (!fullscreen)
     {
         int     diff = (screen->w - width) / 2;
 
         widescreenresize = true;
+
+#ifdef SDL20
+        SDL_DestroyWindow(window);
+        window = SDL_CreateWindow(gamedescription, SDL_WINDOWPOS_UNDEFINED,
+            SDL_WINDOWPOS_UNDEFINED, width, screen->h, SDL_WINDOW_RESIZABLE);
+        screen = SDL_GetWindowSurface(window);
+#else
         screen = SDL_SetVideoMode(width, screen->h, 0, SDL_HWSURFACE | SDL_HWPALETTE |
             SDL_DOUBLEBUF | SDL_RESIZABLE);
+#endif
+
         RepositionWindow(diff);
         windowwidth = screen->w;
         windowheight = screen->h;
     }
+
     SDL_FreeSurface(screenbuffer);
     screenbuffer = SDL_CreateRGBSurface(SDL_SWSURFACE, width, height, 8, 0, 0, 0, 0);
-#endif
 
     pitch = screenbuffer->pitch;
     pixels = (byte *)screenbuffer->pixels;
@@ -1125,20 +1107,18 @@ void ToggleWideScreen(boolean toggle)
     startx = stepx - 1;
     starty = stepy - 1;
 
-#ifdef SDL12
     src_rect.w = screenbuffer->w;
     src_rect.h = screen->clip_rect.h;
     dest_rect.x = (screen->w - screenbuffer->w) / 2;
     dest_rect.y = (widescreen ? 0 : (screen->h - screenbuffer->h) / 2);
     dest_rect.w = screenbuffer->w;
     dest_rect.h = screen->clip_rect.h;
-#endif
 
     palette_to_set = true;
 }
 
 #ifdef WIN32
-void init_win32(LPCTSTR lpIconName);
+void I_InitWindows32(void);
 #endif
 
 void ToggleFullScreen(void)
@@ -1159,12 +1139,10 @@ void ToggleFullScreen(void)
         }
 
 #ifdef SDL20
-        if (sdl_window)
-            SDL_DestroyWindow(sdl_window);
-        sdl_window = SDL_CreateWindow(gamedescription, SDL_WINDOWPOS_UNDEFINED,
+        SDL_DestroyWindow(window);
+        window = SDL_CreateWindow(gamedescription, SDL_WINDOWPOS_UNDEFINED,
             SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_FULLSCREEN);
-        screen = SDL_GetWindowSurface(sdl_window);
-        sdl_renderer = SDL_CreateRenderer(sdl_window, -1, SDL_RENDERER_PRESENTVSYNC);
+        screen = SDL_GetWindowSurface(window);
 #else
         screen = SDL_SetVideoMode(width, height, 0, SDL_HWSURFACE | SDL_HWPALETTE | SDL_DOUBLEBUF |
             SDL_FULLSCREEN);
@@ -1179,12 +1157,10 @@ void ToggleFullScreen(void)
             M_SaveDefaults();
 
 #ifdef SDL20
-            if (sdl_window)
-                SDL_DestroyWindow(sdl_window);
-            sdl_window = SDL_CreateWindow(gamedescription, SDL_WINDOWPOS_UNDEFINED,
+            SDL_DestroyWindow(window);
+            window = SDL_CreateWindow(gamedescription, SDL_WINDOWPOS_UNDEFINED,
                 SDL_WINDOWPOS_UNDEFINED, desktopwidth, desktopheight, SDL_WINDOW_FULLSCREEN);
-            screen = SDL_GetWindowSurface(sdl_window);
-            sdl_renderer = SDL_CreateRenderer(sdl_window, -1, SDL_RENDERER_PRESENTVSYNC);
+            screen = SDL_GetWindowSurface(window);
 #else
             screen = SDL_SetVideoMode(desktopwidth, desktopheight, 0, SDL_HWSURFACE |
                 SDL_HWPALETTE | SDL_DOUBLEBUF | SDL_FULLSCREEN);
@@ -1202,7 +1178,7 @@ void ToggleFullScreen(void)
                 returntowidescreen = true;
             else
             {
-                ToggleWideScreen(true);
+                ToggleWidescreen(true);
                 if (widescreen)
                     screensize = 7;
                 R_SetViewSize(screensize);
@@ -1232,7 +1208,7 @@ void ToggleFullScreen(void)
         SDL_InitSubSystem(SDL_INIT_VIDEO);
 
 #ifdef WIN32
-        init_win32("IDI_ICON1");
+        I_InitWindows32();
 #endif
 
         if (windowheight > desktopheight)
@@ -1254,12 +1230,10 @@ void ToggleFullScreen(void)
         SetWindowPositionVars();
 
 #ifdef SDL20
-        if (sdl_window)
-            SDL_DestroyWindow(sdl_window);
-        sdl_window = SDL_CreateWindow(gamedescription, SDL_WINDOWPOS_UNDEFINED,
+        SDL_DestroyWindow(window);
+        window = SDL_CreateWindow(gamedescription, SDL_WINDOWPOS_UNDEFINED,
             SDL_WINDOWPOS_UNDEFINED, width, height, SDL_WINDOW_RESIZABLE);
-        screen = SDL_GetWindowSurface(sdl_window);
-        sdl_renderer = SDL_CreateRenderer(sdl_window, -1, SDL_RENDERER_PRESENTVSYNC);
+        screen = SDL_GetWindowSurface(window);
 #else
         screen = SDL_SetVideoMode(width, height, 0, SDL_HWSURFACE | SDL_HWPALETTE | SDL_DOUBLEBUF |
             SDL_RESIZABLE);
@@ -1290,7 +1264,7 @@ void ToggleFullScreen(void)
                 returntowidescreen = true;
             else
             {
-                ToggleWideScreen(true);
+                ToggleWidescreen(true);
                 if (widescreen)
                     screensize = 7;
                 R_SetViewSize(screensize);
@@ -1301,13 +1275,7 @@ void ToggleFullScreen(void)
     }
 
     SDL_FreeSurface(screenbuffer);
-
-#ifdef SDL20
-    screenbuffer = SDL_CreateRGBSurface(0, width, height, 8, 0, 0, 0, 0);
-    sdl_texture = SDL_CreateTextureFromSurface(sdl_renderer, screenbuffer);
-#else
     screenbuffer = SDL_CreateRGBSurface(SDL_SWSURFACE, width, height, 8, 0, 0, 0, 0);
-#endif
 
     pitch = screenbuffer->pitch;
     pixels = (byte *)screenbuffer->pixels;
@@ -1318,14 +1286,12 @@ void ToggleFullScreen(void)
     startx = stepx - 1;
     starty = stepy - 1;
 
-#ifdef SDL12
     src_rect.w = screenbuffer->w;
     src_rect.h = screen->clip_rect.h;
     dest_rect.x = (screen->w - screenbuffer->w) / 2;
     dest_rect.y = (screen->h - screenbuffer->h) / 2;
     dest_rect.w = screenbuffer->w;
     dest_rect.h = screen->clip_rect.h;
-#endif
 }
 
 static void ApplyWindowResize(int resize_h)
@@ -1336,20 +1302,16 @@ static void ApplyWindowResize(int resize_h)
     if (widescreen)
         height += (int)((double)height * SBARHEIGHT / (SCREENHEIGHT - SBARHEIGHT) + 1.5);
 
-    SDL_FreeSurface(screenbuffer);
-
 #ifdef SDL20
-    SDL_SetWindowSize(sdl_window, windowwidth, windowheight);
-    screen = SDL_GetWindowSurface(sdl_window);
-
-    screenbuffer = SDL_CreateRGBSurface(0, windowwidth, height, 8, 0, 0, 0, 0);
-    sdl_texture = SDL_CreateTextureFromSurface(sdl_renderer, screenbuffer);
+    SDL_SetWindowSize(window, windowwidth, windowheight);
+    screen = SDL_GetWindowSurface(window);
 #else
     screen = SDL_SetVideoMode(windowwidth, windowheight, 0, SDL_HWSURFACE | SDL_HWPALETTE |
         SDL_DOUBLEBUF | SDL_RESIZABLE);
-
-    screenbuffer = SDL_CreateRGBSurface(SDL_SWSURFACE, windowwidth, height, 8, 0, 0, 0, 0);
 #endif
+
+    SDL_FreeSurface(screenbuffer);
+    screenbuffer = SDL_CreateRGBSurface(SDL_SWSURFACE, windowwidth, height, 8, 0, 0, 0, 0);
 
     pitch = screenbuffer->pitch;
     pixels = (byte *)screenbuffer->pixels;
@@ -1360,14 +1322,12 @@ static void ApplyWindowResize(int resize_h)
     startx = stepx - 1;
     starty = stepy - 1;
 
-#ifdef SDL12
     src_rect.w = screenbuffer->w;
     src_rect.h = screen->clip_rect.h;
     dest_rect.x = (screen->w - screenbuffer->w) / 2;
     dest_rect.y = (screen->h - screenbuffer->h) / 2;
     dest_rect.w = screenbuffer->w;
     dest_rect.h = screen->clip_rect.h;
-#endif
 
     M_SaveDefaults();
 }
@@ -1481,13 +1441,13 @@ void I_InitGraphics(void)
     SetVideoMode();
 
 #ifdef WIN32
-    init_win32("IDI_ICON1");
+    I_InitWindows32();
 #endif
 
     SDL_EventState(SDL_SYSWMEVENT, SDL_ENABLE);
 
 #ifdef SDL20
-    SDL_SetWindowTitle(sdl_window, PACKAGE_NAME);
+    SDL_SetWindowTitle(window, PACKAGE_NAME);
 #else
     SDL_WM_SetCaption(PACKAGE_NAME, NULL);
 #endif
@@ -1496,9 +1456,6 @@ void I_InitGraphics(void)
 
 #ifdef SDL20
     SDL_SetPaletteColors(screenbuffer->format->palette, palette, 0, 256);
-    if (sdl_texture)
-        SDL_DestroyTexture(sdl_texture);
-    sdl_texture = SDL_CreateTextureFromSurface(sdl_renderer, screenbuffer);
 #else
     SDL_SetColors(screenbuffer, palette, 0, 256);
 #endif

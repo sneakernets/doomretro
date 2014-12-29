@@ -856,14 +856,20 @@ void R_InitSpriteLumps(void)
             if (mobjinfo[i].flags2 & MF2_BLOOD)
                 mobjinfo[i].flags2 = MF2_BLOOD;
             else
-            {
-                mobjinfo[i].blood = MT_BLOOD;
                 mobjinfo[i].flags2 = 0;
-            }
         }
-        states[S_BAR1].tics = 0;
-        mobjinfo[MT_BARREL].spawnstate = S_BAR2;
-        mobjinfo[MT_BARREL].frames = 2;
+    }
+
+    if (!BTSX)
+    {
+        if (mergedcacodemon)
+            mobjinfo[MT_HEAD].blood = MT_BLOOD;
+
+        if (mergednoble)
+        {
+            mobjinfo[MT_BRUISER].blood = MT_BLOOD;
+            mobjinfo[MT_KNIGHT].blood = MT_BLOOD;
+        }
     }
 }
 
@@ -943,7 +949,7 @@ int R_FlatNumForName(char *name)
     i = W_RangeCheckNumForName(firstflat, lastflat, name);
 
     if (i == -1)
-        I_Error("R_FlatNumForName: %.8s not found", name);
+        return 0;
     return (i - firstflat);
 }
 
