@@ -297,8 +297,6 @@ static void GenerateSpriteList(void)
     {
         lumpinfo_t      *lump = &pwad_sprites.lumps[i];
 
-        printf("%s\n", lump->name);
-
         if (M_StringStartsWith(lump->name, "HEAD"))
             mergedcacodemon = true;
         else if (M_StringStartsWith(lump->name, "BOSS") || M_StringStartsWith(lump->name, "BOS2"))

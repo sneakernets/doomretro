@@ -583,7 +583,7 @@ void P_MobjThinker(mobj_t *mobj)
 void P_NullMobjThinker(mobj_t *mobj)
 {
 }
-
+#include "i_system.h"
 //
 // P_SpawnMobj
 //
@@ -629,6 +629,12 @@ mobj_t *P_SpawnMobj(fixed_t x, fixed_t y, fixed_t z, mobjtype_t type)
     mobj->tics = st->tics;
     mobj->sprite = st->sprite;
     mobj->frame = st->frame;
+
+    if (!mobj->info->canmodify)
+    {
+        mobj->projectilepassheight = mobj->height;
+        mobj->flags2 = 0;
+    }
 
     mobj->colfunc = info->colfunc;
     mobj->blood = info->blood;
