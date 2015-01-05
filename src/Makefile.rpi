@@ -37,7 +37,7 @@
 #
 
 #For Compilation on Raspberry Pi ONLY
-OPTIMIZE = -O3 -fomit-frame-pointer
+OPTIMIZE = -Ofast -fomit-frame-pointer -funroll-loops
 CFLAGS = $(OPTIMIZE) -g `sdl-config --cflags ` $(INCLUDES)
 LDFLAGS = -g `sdl-config --libs` -lSDL_mixer -lm
 
