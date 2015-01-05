@@ -290,14 +290,8 @@ vissprite_t *R_NewVisSprite(void)
 {
     if (num_vissprite >= num_vissprite_alloc)           // killough
     {
-        size_t  num_vissprite_alloc_prev = num_vissprite_alloc;
-
         num_vissprite_alloc = (num_vissprite_alloc ? num_vissprite_alloc * 2 : 128);
         vissprites = realloc(vissprites, num_vissprite_alloc * sizeof(*vissprites));
-
-        // e6y: set all fields to zero
-        memset(vissprites + num_vissprite_alloc_prev, 0,
-            (num_vissprite_alloc - num_vissprite_alloc_prev) * sizeof(*vissprites));
     }
     return (vissprites + num_vissprite++);
 }
@@ -329,7 +323,6 @@ static void R_DrawMaskedSpriteColumn(column_t *column, int baseclip)
 
         if (baseclip != -1)
             dc_yh = MIN(baseclip, dc_yh);
-        fuzzclip = baseclip;
 
         dc_texturefrac = dc_texturemid - (topdelta << FRACBITS) +
             FixedMul((dc_yl - centery) << FRACBITS, dc_iscale);
@@ -370,7 +363,7 @@ static void R_DrawMaskedShadowColumn(column_t *column, int baseclip)
         // calculate unclipped screen coordinates for post
         int     topscreen = sprtopscreen + spryscale * column->topdelta + 1;
 
-        dc_yl = MAX(((topscreen >> FRACBITS) + 1) / 10 + shift, mceilingclip[dc_x] + 1);
+        dc_yl = MAX(((topscreen + FRACUNIT) >> FRACBITS) / 10 + shift, mceilingclip[dc_x] + 1);
         dc_yh = MIN(((topscreen + spryscale * length) >> FRACBITS) / 10 + shift,
             mfloorclip[dc_x] - 1);
 
@@ -402,9 +395,8 @@ void R_DrawVisSprite(vissprite_t *vis)
 
     dc_colormap = vis->colormap;
     colfunc = vis->colfunc;
-    fuzzpos = 0;
 
-    dc_iscale = ABS(vis->xiscale);
+    dc_iscale = ABS(xiscale);
     dc_texturemid = vis->texturemid;
     if (dc_colormap)
     {
@@ -437,6 +429,9 @@ void R_DrawVisSprite(vissprite_t *vis)
         baseclip = (sprtopscreen + FixedMul(SHORT(patch->height) << FRACBITS, spryscale)
             - FixedMul(vis->footclip, spryscale)) >> FRACBITS;
 
+    fuzzpos = 0;
+    fuzzclip = baseclip;
+
     for (dc_x = vis->x1; dc_x <= x2; dc_x++, frac += xiscale)
         func((column_t *)((byte *)patch + LONG(patch->columnofs[frac >> FRACBITS])), baseclip);
 
@@ -465,8 +460,6 @@ void R_ProjectSprite(mobj_t *thing)
     boolean             flip;
 
     vissprite_t         *vis;
-
-    fixed_t             iscale;
 
     fixed_t             fx = thing->x;
     fixed_t             fy = thing->y;
@@ -529,8 +522,8 @@ void R_ProjectSprite(mobj_t *thing)
 
     gzt = fz + (type == MT_SHADOW ? 0 : spritetopoffset[lump]);
 
-    if (fz > viewz + FixedDiv(centeryfrac, xscale)
-        || gzt < viewz - FixedDiv(centeryfrac - viewheight, xscale))
+    if (fz > viewz + FixedDiv(viewheight << FRACBITS, xscale)
+        || gzt < viewz - FixedDiv((viewheight << FRACBITS) - viewheight, xscale))
         return;
 
     // store information in a vissprite
@@ -559,17 +552,16 @@ void R_ProjectSprite(mobj_t *thing)
 
     vis->x1 = MAX(0, x1);
     vis->x2 = MIN(x2, viewwidth - 1);
-    iscale = FixedDiv(FRACUNIT, xscale);
 
     if (flip)
     {
         vis->startfrac = spritewidth[lump] - 1;
-        vis->xiscale = -iscale;
+        vis->xiscale = -FixedDiv(FRACUNIT, xscale);
     }
     else
     {
         vis->startfrac = 0;
-        vis->xiscale = iscale;
+        vis->xiscale = FixedDiv(FRACUNIT, xscale);
     }
 
     if (vis->x1 > x1)
@@ -869,14 +861,14 @@ void R_DrawFirstSprite(vissprite_t *spr)
         return;
     else
     {
-        drawseg_t                       *ds;
-        int                             clipbot[SCREENWIDTH];
-        int                             cliptop[SCREENWIDTH];
-        int                             x;
-        int                             r1;
-        int                             r2;
-        fixed_t                         scale;
-        fixed_t                         lowscale;
+        drawseg_t       *ds;
+        int             clipbot[SCREENWIDTH];
+        int             cliptop[SCREENWIDTH];
+        int             x;
+        int             r1;
+        int             r2;
+        fixed_t         scale;
+        fixed_t         lowscale;
 
         for (x = spr->x1; x <= spr->x2; x++)
             clipbot[x] = cliptop[x] = -2;
@@ -890,18 +882,16 @@ void R_DrawFirstSprite(vissprite_t *spr)
             if (ds->x1 > spr->x2 || ds->x2 < spr->x1 || (!ds->silhouette && !ds->maskedtexturecol))
                 continue;           // does not cover sprite
 
-            r1 = MAX(ds->x1, spr->x1);
-            r2 = MIN(ds->x2, spr->x2);
-
             lowscale = MIN(ds->scale1, ds->scale2);
             scale = MAX(ds->scale1, ds->scale2);
 
-            if (scale < spr->scale ||
-                (lowscale < spr->scale && !R_PointOnSegSide(spr->gx, spr->gy, ds->curline)))
-            {
+            if (scale < spr->scale || (lowscale < spr->scale &&
+                !R_PointOnSegSide(spr->gx, spr->gy, ds->curline)))
                 // seg is behind sprite
                 continue;
-            }
+
+            r1 = MAX(ds->x1, spr->x1);
+            r2 = MIN(ds->x2, spr->x2);
 
             // clip this piece of the sprite
             // killough 3/27/98: optimized and made much shorter
@@ -953,30 +943,33 @@ void R_DrawSprite(vissprite_t *spr)
             clipbot[x] = cliptop[x] = -2;
 
         // Scan drawsegs from end to start for obscuring segs.
-        // The first drawseg that has a greater scale
-        //  is the clip seg.
+        // The first drawseg that has a greater scale is the clip seg.
         for (ds = ds_p - 1; ds >= drawsegs; ds--)
         {
             // determine if the drawseg obscures the sprite
             if (ds->x1 > spr->x2 || ds->x2 < spr->x1 || (!ds->silhouette && !ds->maskedtexturecol))
                 continue;           // does not cover sprite
 
-            r1 = MAX(ds->x1, spr->x1);
-            r2 = MIN(ds->x2, spr->x2);
-
             lowscale = MIN(ds->scale1, ds->scale2);
             scale = MAX(ds->scale1, ds->scale2);
 
-            if (scale < spr->scale ||
-                (lowscale < spr->scale && !R_PointOnSegSide(spr->gx, spr->gy, ds->curline)))
+            if (scale < spr->scale || (lowscale < spr->scale &&
+                !R_PointOnSegSide(spr->gx, spr->gy, ds->curline)))
             {
                 // masked mid texture?
                 if (ds->maskedtexturecol)
+                {
+                    r1 = MAX(ds->x1, spr->x1);
+                    r2 = MIN(ds->x2, spr->x2);
                     R_RenderMaskedSegRange(ds, r1, r2);
+                }
 
                 // seg is behind sprite
                 continue;
             }
+
+            r1 = MAX(ds->x1, spr->x1);
+            r2 = MIN(ds->x2, spr->x2);
 
             // clip this piece of the sprite
             // killough 3/27/98: optimized and made much shorter

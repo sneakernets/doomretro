@@ -3157,6 +3157,19 @@ void M_Drawer(void)
     {
         patch_t *patch = W_CacheLumpName(skullName[whichSkull], PU_CACHE);
 
+        if (currentMenu == &LoadDef)
+        {
+            int old = itemOn;
+
+            while (!strcasecmp(savegamestrings[itemOn], s_EMPTYSTRING))
+                itemOn = (!itemOn ? currentMenu->numitems - 1 : itemOn - 1);
+            if (itemOn != old)
+            {
+                SaveDef.lastOn = selectedsavegame = itemOn;
+                M_SaveDefaults();
+            }
+        }
+
         if (M_SKULL1)
             M_DrawPatchWithShadow(x - 43, currentMenu->y + itemOn * 17 - 8 + OFFSET + chex, patch);
         else
