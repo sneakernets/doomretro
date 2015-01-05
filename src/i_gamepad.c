@@ -140,8 +140,8 @@ void I_InitGamepad(void)
 
 void I_ShutdownGamepad(void)
 {
-    //if (pXInputDLL)
-    //    FreeLibrary(pXInputDLL);
+    if (pXInputDLL)
+        FreeLibrary(pXInputDLL);
 
     if (gamepad)
     {
